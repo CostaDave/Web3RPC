@@ -36,7 +36,7 @@ Web3RPC relies on web3.js. Make sure you include that first:
 
 ```
 <script src="/web3.js"></script>
-<script src="/web3rpc.js"></script>
+<script src="/dist/web3rpc.js"></script>
 ```
 ### Using Web3RPC
 
@@ -80,7 +80,7 @@ myContract.getBalance(function(err, result) {
 
 Note that in the background Web3RPC sends an `eth_call` request, and formats the result object in the exact same way a contract created with `web3.eth.contract` would. As well -- and as you might expect -- the above method does not make a transaction that persists on the blockchain. 
 
-Making a persistent transaction on contract is slightly different than web3.js, but with a few added features. First, consider this code:
+Making a persistent transaction to a contract is slightly different than web3.js, but with a few added features. First, consider this code:
 
 ```
 myContract.sendCoin(receiver_address, amount, function(err, result) {

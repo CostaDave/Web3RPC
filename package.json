@@ -20,6 +20,6 @@
     "web3": "*",
     "xmlhttprequest": "^1.7.0"
   },
-  "license": "MIT License. Copyright First Rally. All rights reserved."
+  "license": "MIT License."
 }
 
