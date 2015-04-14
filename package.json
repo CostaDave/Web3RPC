@@ -16,7 +16,6 @@
     "grunt-contrib-uglify": "*"
   },
   "dependencies": {
-    "coffee-script": "*",
     "web3": "*",
     "xmlhttprequest": "^1.7.0"
   },
