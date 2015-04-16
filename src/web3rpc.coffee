@@ -27,7 +27,7 @@ factory = (web3, XMLHttpRequest) ->
         params = []
 
       if !callback?
-        throw "send() must be passed a callback!"
+        throw "send() function must be passed a callback!"
 
       payload = 
         jsonrpc: "2.0"
@@ -91,6 +91,8 @@ factory = (web3, XMLHttpRequest) ->
 
         tx_params.data = fn_identifier + parsed
 
+        console.log block
+
         @send method, [tx_params, block], (err, result) ->
           if err?
             callback(err, result)
@@ -134,18 +136,16 @@ factory = (web3, XMLHttpRequest) ->
       # This allows for the following syntax:
       #
       # myContract.sendCoin(receiver, amount).send({gas: 10000})
-      createHandler = (fully_qualified_name, abi) =>
+      createFunctionHandler = (fully_qualified_name, abi) =>
         web3rpc = @
         return () ->
-          callfn = (method, params, tx_params, callback) =>
+          callfn = (method, params, tx_params, block, callback) =>
             final_tx_params = {to: @address}
 
             for key, value of tx_params
               final_tx_params[key] = value
 
-            console.log fully_qualified_name
-
-            web3rpc.call_or_transact(method, fully_qualified_name, abi, params, final_tx_params, "latest", callback)
+            web3rpc.call_or_transact(method, fully_qualified_name, abi, params, final_tx_params, block, callback)
 
           args = Array.prototype.slice.call(arguments)
           callback = args[args.length - 1] if typeof args[args.length - 1] == "function"
@@ -153,27 +153,48 @@ factory = (web3, XMLHttpRequest) ->
           if callback?
             # There's a callback, so don't send the callback
             params = args.splice(0, args.length - 1)
-            callfn("eth_call", params, {}, callback)
+            callfn("eth_call", params, {}, "latest", callback)
           else
+            # no callback, so return *another* function that will 
+            # give the user more control, as well as sending a 
+            # persistent transaction.
+
             params = args
-            # no callback, so return *another* function that will allow
-            # the user to send the transaction it.
-            return {
-              send: (tx_params={}, callback) =>
+            
+            createDetailedHelper = (method) ->
+              # All parameters are optional except the callback.
+              return (tx_params={}, block="latest", callback) =>
+                # This is a bit ugly, but it's a tradeoff for nice syntax
+                # for the user.
+
+                if typeof tx_params == "string"
+                  callback = block
+                  block = tx_params
+                  tx_params = {}
+
                 if typeof tx_params == "function"
                   callback = tx_params
                   tx_params = {}
 
-                if !callback?
-                  throw "send() function must be passed a callback!"
+                if typeof block == "function"
+                  callback = block
+                  block = "latest"
 
-                callfn("eth_sendTransaction", params, tx_params, callback)
+                if !callback? or typeof callback != "function"
+                  helper_name = if method.indexOf("send") >= 0 then "send" else "call" 
+                  throw "#{helper_name}() function must be passed a callback!"
+
+                callfn(method, params, tx_params, block, callback)
+
+            return {
+              call: createDetailedHelper("eth_call")
+              send: createDetailedHelper("eth_sendTransaction")
             }
 
       names = @fullyQualifyNames(abi)
       
       for prefix, fully_qualified_name of names
-        Contract.prototype[prefix] = createHandler(fully_qualified_name, abi)
+        Contract.prototype[prefix] = createFunctionHandler(fully_qualified_name, abi)
 
       Contract
 
