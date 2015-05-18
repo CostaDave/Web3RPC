@@ -38,7 +38,7 @@
           params = [];
         }
         if (callback == null) {
-          throw "send() must be passed a callback!";
+          throw "send() function must be passed a callback!";
         }
         payload = {
           jsonrpc: "2.0",
@@ -108,6 +108,10 @@
         names = {};
         for (i = 0, len = abi.length; i < len; i++) {
           fn = abi[i];
+          if (fn.name.indexOf("(") > 0) {
+            names[fn.name.substring(0, fn.name.indexOf("("))] = fn.name;
+            continue;
+          }
           fully_qualified_name = fn.name + "(";
           ref = fn.inputs;
           for (j = 0, len1 = ref.length; j < len1; j++) {
@@ -124,7 +128,7 @@
       };
 
       Web3RPC.prototype.contract = function(abi) {
-        var Contract, createHandler, fully_qualified_name, names, prefix, web3rpc;
+        var Contract, createFunctionHandler, fully_qualified_name, names, prefix, web3rpc;
         web3rpc = this;
         Contract = (function() {
           Contract.prototype.web3rpc = web3rpc;
@@ -136,13 +140,13 @@
           return Contract;
 
         })();
-        createHandler = (function(_this) {
+        createFunctionHandler = (function(_this) {
           return function(fully_qualified_name, abi) {
             web3rpc = _this;
             return function() {
-              var args, callback, callfn, params;
+              var args, callback, callfn, createDetailedHelper, params;
               callfn = (function(_this) {
-                return function(method, params, tx_params, callback) {
+                return function(method, params, tx_params, block, callback) {
                   var final_tx_params, key, value;
                   final_tx_params = {
                     to: _this.address
@@ -151,8 +155,7 @@
                     value = tx_params[key];
                     final_tx_params[key] = value;
                   }
-                  console.log(fully_qualified_name);
-                  return web3rpc.call_or_transact(method, fully_qualified_name, abi, params, final_tx_params, "latest", callback);
+                  return web3rpc.call_or_transact(method, fully_qualified_name, abi, params, final_tx_params, block, callback);
                 };
               })(this);
               args = Array.prototype.slice.call(arguments);
@@ -161,25 +164,43 @@
               }
               if (callback != null) {
                 params = args.splice(0, args.length - 1);
-                return callfn("eth_call", params, {}, callback);
+                return callfn("eth_call", params, {}, "latest", callback);
               } else {
                 params = args;
-                return {
-                  send: (function(_this) {
-                    return function(tx_params, callback) {
+                createDetailedHelper = function(method) {
+                  return (function(_this) {
+                    return function(tx_params, block, callback) {
+                      var helper_name;
                       if (tx_params == null) {
+                        tx_params = {};
+                      }
+                      if (block == null) {
+                        block = "latest";
+                      }
+                      if (typeof tx_params === "string") {
+                        callback = block;
+                        block = tx_params;
                         tx_params = {};
                       }
                       if (typeof tx_params === "function") {
                         callback = tx_params;
                         tx_params = {};
                       }
-                      if (callback == null) {
-                        throw "send() function must be passed a callback!";
+                      if (typeof block === "function") {
+                        callback = block;
+                        block = "latest";
                       }
-                      return callfn("eth_sendTransaction", params, tx_params, callback);
+                      if ((callback == null) || typeof callback !== "function") {
+                        helper_name = method.indexOf("send") >= 0 ? "send" : "call";
+                        throw helper_name + "() function must be passed a callback!";
+                      }
+                      return callfn(method, params, tx_params, block, callback);
                     };
-                  })(this)
+                  })(this);
+                };
+                return {
+                  call: createDetailedHelper("eth_call"),
+                  send: createDetailedHelper("eth_sendTransaction")
                 };
               }
             };
@@ -188,7 +209,7 @@
         names = this.fullyQualifyNames(abi);
         for (prefix in names) {
           fully_qualified_name = names[prefix];
-          Contract.prototype[prefix] = createHandler(fully_qualified_name, abi);
+          Contract.prototype[prefix] = createFunctionHandler(fully_qualified_name, abi);
         }
         return Contract;
       };

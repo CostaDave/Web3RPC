@@ -91,8 +91,6 @@ factory = (web3, XMLHttpRequest) ->
 
         tx_params.data = fn_identifier + parsed
 
-        console.log block
-
         @send method, [tx_params, block], (err, result) ->
           if err?
             callback(err, result)
@@ -104,10 +102,17 @@ factory = (web3, XMLHttpRequest) ->
               # We made a transaction, so just return the tx address that gets sent back.
               callback(null, result)
 
-    # Get fully qualified function names from abi
+    # Get fully qualified function names from abi.
+    # Support ABI definitions that don't already have them. 
     fullyQualifyNames: (abi) ->
       names = {}
       for fn in abi
+        
+        # Does this function already contain a fully qualified name? Use that.
+        if fn.name.indexOf("(") > 0
+          names[fn.name.substring(0, fn.name.indexOf("("))] = fn.name
+          continue
+
         fully_qualified_name = fn.name + "("
 
         for input in fn.inputs
