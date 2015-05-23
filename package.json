@@ -1,6 +1,6 @@
 {
   "name": "web3rpc",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "description": "Web3RPC - Wrapper around web3.js and JSON RPC protocol",
   "author": "Tim Coulter",
   "main": "dist/web3rpc.js",
